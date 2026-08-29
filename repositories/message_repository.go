@@ -18,7 +18,7 @@ func NewMessageRepository(db *pgxpool.Pool) *MessageRepository {
 	}
 }
 
-func (r *MessageRepository) CreateMessage(message models.Message) (*models.Message,error) {
+func (r *MessageRepository) CreateMessage(message models.Message) (error) {
 	query := `insert into messages (sender_id,receiver_id,content) values ($1,$2,$3) RETURNING id, created_at`
 	
 	var createdMessage models.Message
@@ -26,14 +26,10 @@ func (r *MessageRepository) CreateMessage(message models.Message) (*models.Messa
 	err := r.DB.QueryRow(context.Background(),query,message.SenderID,message.ReceiverID,message.Content).Scan(&createdMessage.ID,&createdMessage.CreatedAt)
 
 	if(err!=nil){
-		return nil,err
+		return err
 	}
 
-	createdMessage.SenderID = message.SenderID
-	createdMessage.ReceiverID = message.ReceiverID
-	createdMessage.Content = message.Content
-
-	return &createdMessage,nil
+	return nil
 
 }
 
@@ -50,7 +46,7 @@ func (r *MessageRepository) GetMessages(user1 uuid.UUID, user2 uuid.UUID) ([]mod
 
 	defer rows.Close()
 
-	var messages []models.Message
+	messages := make([]models.Message, 0)
 
 	for rows.Next(){
 		var message models.Message

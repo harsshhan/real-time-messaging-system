@@ -18,4 +18,8 @@ func SetupRoutes(r *gin.Engine, app *bootstrap.Application){
 	
 	protected.GET("/users", app.UserHandler.GetUsers)
 
+	protected.POST("/message",app.MessageHandler.SendMessage)
+
+	protected.GET("/message/:otherUserID",app.MessageHandler.GetConversation)
+
 }
