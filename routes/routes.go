@@ -22,4 +22,6 @@ func SetupRoutes(r *gin.Engine, app *bootstrap.Application){
 
 	protected.GET("/message/:otherUserID",app.MessageHandler.GetConversation)
 
+	protected.GET("/ws", app.MessageHandler.WebSocket)
+
 }

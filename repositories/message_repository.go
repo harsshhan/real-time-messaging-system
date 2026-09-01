@@ -18,18 +18,31 @@ func NewMessageRepository(db *pgxpool.Pool) *MessageRepository {
 	}
 }
 
-func (r *MessageRepository) CreateMessage(message models.Message) (error) {
-	query := `insert into messages (sender_id,receiver_id,content) values ($1,$2,$3) RETURNING id, created_at`
+func (r *MessageRepository) CreateMessage(message models.Message) (*models.Message, error) {
+	query := `insert into messages (sender_id,receiver_id,content) values ($1,$2,$3) RETURNING id, sender_id, receiver_id, content, created_at`
 	
 	var createdMessage models.Message
 	
-	err := r.DB.QueryRow(context.Background(),query,message.SenderID,message.ReceiverID,message.Content).Scan(&createdMessage.ID,&createdMessage.CreatedAt)
+	err := r.DB.QueryRow(
+
+		context.Background(),
+		query,
+		message.SenderID,
+		message.ReceiverID,
+		message.Content,
+	).Scan(
+		&createdMessage.ID,
+		&createdMessage.SenderID,
+		&createdMessage.ReceiverID,
+		&createdMessage.Content,
+		&createdMessage.CreatedAt,
+	)
 
 	if(err!=nil){
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &createdMessage, nil
 
 }
 

@@ -14,7 +14,7 @@ type Message struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-type SendMessageRequest struct {
+type WebSocketMessage struct {
 	ReceiverID uuid.UUID `json:"receiver_id"`
 	Content string `json:"content"`
 }

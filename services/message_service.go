@@ -19,7 +19,7 @@ func NewMessageService(
 	}
 }
 
-func (s *MessageService) SendMessage(senderID uuid.UUID ,req models.SendMessageRequest ) error {
+func (s *MessageService) SendMessage(senderID uuid.UUID ,req models.WebSocketMessage ) (*models.Message, error) {
 	message := models.Message{
 		SenderID: 		senderID,
 		ReceiverID: 	req.ReceiverID,
@@ -27,6 +27,7 @@ func (s *MessageService) SendMessage(senderID uuid.UUID ,req models.SendMessageR
 	}
 
 	return s.MessageRepo.CreateMessage(message)
+
 }
 
 func (s *MessageService) GetConversation(userID, otherUserID uuid.UUID) ([]models.Message, error) {

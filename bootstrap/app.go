@@ -4,6 +4,7 @@ import (
 	"backend/handlers"
 	"backend/repositories"
 	"backend/services"
+	"backend/ws"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -15,6 +16,8 @@ type Application struct {
 }
 
 func NewApplication(db *pgxpool.Pool) *Application {
+
+	manager := ws.NewConnectionManager()
 
 	// Repositories
 	userRepo := repositories.NewUserRepository(db)
@@ -28,7 +31,9 @@ func NewApplication(db *pgxpool.Pool) *Application {
 	// Handlers
 	authHandler := handlers.NewAuthHandler(authService)
 	userHandler := handlers.NewUserHandler(userService)
-	messageHandler := handlers.NewMessageHandler(messageService)
+	messageHandler := handlers.NewMessageHandler(messageService,manager)
+
+	
 
 	return &Application{
 		AuthHandler: authHandler,

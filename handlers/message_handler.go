@@ -3,6 +3,7 @@ package handlers
 import (
 	"backend/models"
 	"backend/services"
+	"backend/ws"
 	"log"
 	"net/http"
 
@@ -12,18 +13,20 @@ import (
 
 type MessageHandler struct{
 	Service *services.MessageService
+	Manager *ws.ConnectionManager
 }
 
-func NewMessageHandler(service *services.MessageService) *MessageHandler {
+func NewMessageHandler(service *services.MessageService	,manager *ws.ConnectionManager) *MessageHandler {
 	return &MessageHandler{
 		Service: service,
+		Manager: manager,
 	}
 
 }
 
 func (h *MessageHandler) SendMessage(c *gin.Context) {
 
-	var req models.SendMessageRequest
+	var req models.WebSocketMessage
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -50,7 +53,7 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	err := h.Service.SendMessage(senderID, req)
+	message, err := h.Service.SendMessage(senderID, req)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -60,7 +63,7 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
-		"message": "message sent successfully",
+		"message": message,
 	})
 }
 
