@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -58,15 +59,15 @@ func (r *UserRepository) GetAllUsers() ([]models.UserResponse, error) {
 	query := `SELECT id, name, COALESCE(profile_picture, '') AS profile_picture, is_online, last_seen FROM users`
 
 	rows, err := r.DB.Query(context.Background(), query)
-	if(err!=nil){
-		return nil,err
+	if err != nil {
+		return nil, err
 	}
 
 	defer rows.Close()
 
 	var users []models.UserResponse
-	
-	for rows.Next(){
+
+	for rows.Next() {
 		var user models.UserResponse
 		err := rows.Scan(
 			&user.ID,
@@ -75,11 +76,19 @@ func (r *UserRepository) GetAllUsers() ([]models.UserResponse, error) {
 			&user.IsOnline,
 			&user.LastSeen,
 		)
-		if(err!=nil){
-			return nil,err
+		if err != nil {
+			return nil, err
 		}
 
 		users = append(users, user)
 	}
 	return users, nil
+}
+
+func (r *UserRepository) UpdateLastSeen(userId uuid.UUID) error {
+	query := `UPDATE users set last_seen = NOW() where id = $1`
+
+	_, err := r.DB.Exec(context.Background(), query, userId)
+
+	return err
 }

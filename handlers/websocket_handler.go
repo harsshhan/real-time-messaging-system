@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"backend/models"
+	"context"
 	"log"
 	"net/http"
 
@@ -17,7 +18,6 @@ var upgrader = websocket.Upgrader{
 }
 
 func (h *MessageHandler) WebSocket(c *gin.Context) {
-
 
 	userIDValue, exists := c.Get("userID")
 	if !exists {
@@ -38,51 +38,82 @@ func (h *MessageHandler) WebSocket(c *gin.Context) {
 		return
 	}
 	h.Manager.Add(userID, conn)
+
+	ctx := context.Background()
+
+	err = h.Redis.Set(
+		ctx,
+		"user:"+userID.String(),
+		"online",
+		0,
+	).Err()
+
+	if err != nil {
+		log.Println("Redis presence error:", err)
+	}
+
 	defer func() {
+
 		h.Manager.Remove(userID)
+
+		err := h.Redis.Del(
+			context.Background(),
+			"user:"+userID.String(),
+		).Err()
+
+		if err != nil {
+			log.Println("Redis presence delete error:", err)
+		}
+
+		err = h.UserService.UpdateLastSeen(userID)
+
+		if err != nil {
+			log.Println("Update last seen error:", err)
+		}
+
 		conn.Close()
 	}()
 	for {
-	var message models.WebSocketMessage
+		var message models.WebSocketMessage
 
-	err := conn.ReadJSON(&message)
+		err := conn.ReadJSON(&message)
 
-	if err != nil {
-		log.Println("WebSocket read error:", err)
-		break
+		if err != nil {
+			log.Println("WebSocket read error:", err)
+			break
+		}
+
+		log.Println("Received message:", message)
+
+		createdMessage, err := h.Service.SendMessage(
+			userID,
+			message,
+		)
+
+		if err != nil {
+			log.Println("Send message error:", err)
+
+			conn.WriteJSON(gin.H{
+				"error": "failed to send message",
+			})
+			continue
+		}
+
+		log.Println("Message saved:", createdMessage)
+
+		receiverConn, exists := h.Manager.Get(message.ReceiverID)
+
+		if !exists {
+			log.Println("Receiver is offline:", message.ReceiverID)
+			continue
+		}
+
+		err = receiverConn.WriteJSON(createdMessage)
+
+		if err != nil {
+			log.Println("WebSocket write error:", err)
+			h.Manager.Remove(message.ReceiverID)
+		}
 	}
-
-	log.Println("Received message:", message)
-
-	createdMessage, err := h.Service.SendMessage(
-		userID,
-		message,
-	)
-
-	if err != nil {
-		log.Println("Send message error:", err)
-
-		conn.WriteJSON(gin.H{
-			"error": "failed to send message",
-		})
-		continue
-	}
-
-	log.Println("Message saved:", createdMessage)
-
-	receiverConn, exists := h.Manager.Get(message.ReceiverID)
-
-	if !exists {
-		log.Println("Receiver is offline:", message.ReceiverID)
-		continue
-	}
-
-	err = receiverConn.WriteJSON(createdMessage)
-
-	if err != nil {
-		log.Println("WebSocket write error:", err)
-		h.Manager.Remove(message.ReceiverID)
-	}
-}
 
 }

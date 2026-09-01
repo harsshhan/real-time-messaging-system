@@ -9,17 +9,22 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 type MessageHandler struct{
 	Service *services.MessageService
 	Manager *ws.ConnectionManager
+	Redis *redis.Client
+	UserService *services.UserService
 }
 
-func NewMessageHandler(service *services.MessageService	,manager *ws.ConnectionManager) *MessageHandler {
+func NewMessageHandler(service *services.MessageService	,manager *ws.ConnectionManager, redis *redis.Client,userService *services.UserService) *MessageHandler {
 	return &MessageHandler{
 		Service: service,
 		Manager: manager,
+		Redis: redis,
+		UserService: userService,
 	}
 
 }

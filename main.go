@@ -5,6 +5,7 @@ import (
 	"backend/database"
 	"backend/routes"
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/gin-gonic/gin"
@@ -25,11 +26,20 @@ func main() {
 		panic(err)
 	}
 
-	app := bootstrap.NewApplication(db)
-	
+	redisClient, err := database.ConnectRedis()
+
+	if err != nil {
+		panic(err)
+	}
+	defer redisClient.Close()
+
+	fmt.Println("Redis connected successfully")
+
+	app := bootstrap.NewApplication(db,redisClient)
+
 	r := gin.Default()
 
-	routes.SetupRoutes(r,app)
-	
+	routes.SetupRoutes(r, app)
+
 	r.Run()
 }

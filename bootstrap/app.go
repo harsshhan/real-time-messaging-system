@@ -7,6 +7,7 @@ import (
 	"backend/ws"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 type Application struct {
@@ -15,7 +16,7 @@ type Application struct {
 	MessageHandler *handlers.MessageHandler
 }
 
-func NewApplication(db *pgxpool.Pool) *Application {
+func NewApplication(db *pgxpool.Pool,redis *redis.Client) *Application {
 
 	manager := ws.NewConnectionManager()
 
@@ -25,13 +26,13 @@ func NewApplication(db *pgxpool.Pool) *Application {
 
 	// Services
 	authService := services.NewAuthService(userRepo)
-	userService := services.NewUserService(userRepo)
+	userService := services.NewUserService(userRepo,redis)
 	messageService := services.NewMessageService(messageRepo)
 	
 	// Handlers
 	authHandler := handlers.NewAuthHandler(authService)
 	userHandler := handlers.NewUserHandler(userService)
-	messageHandler := handlers.NewMessageHandler(messageService,manager)
+	messageHandler := handlers.NewMessageHandler(messageService,manager, redis,userService)
 
 	
 
