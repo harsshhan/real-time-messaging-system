@@ -4,27 +4,28 @@ import (
 	"backend/models"
 	"backend/services"
 	"backend/ws"
+	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/redis/go-redis/v9"
 )
 
-type MessageHandler struct{
-	Service *services.MessageService
-	Manager *ws.ConnectionManager
-	Redis *redis.Client
-	UserService *services.UserService
+type MessageHandler struct {
+	Service      *services.MessageService
+	Manager      *ws.ConnectionManager
+	RedisService *services.RedisService
+	UserService  *services.UserService
 }
 
-func NewMessageHandler(service *services.MessageService	,manager *ws.ConnectionManager, redis *redis.Client,userService *services.UserService) *MessageHandler {
+func NewMessageHandler(service *services.MessageService, manager *ws.ConnectionManager, RedisService *services.RedisService, userService *services.UserService) *MessageHandler {
 	return &MessageHandler{
-		Service: service,
-		Manager: manager,
-		Redis: redis,
-		UserService: userService,
+		Service:      service,
+		Manager:      manager,
+		RedisService: RedisService,
+		UserService:  userService,
 	}
 
 }
@@ -123,4 +124,47 @@ func (h *MessageHandler) GetConversation(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, messages)
+}
+
+func (h *MessageHandler) ListenForMessages(ctx context.Context) {
+
+	pubsub := h.RedisService.Subscribe(ctx, "messages")
+	defer pubsub.Close()
+
+	for {
+		message, err := pubsub.ReceiveMessage(ctx)
+
+		if err != nil {
+			log.Println("Redis subscriber error:", err)
+			return
+		}
+		var event models.MessageEvent
+
+		err = json.Unmarshal([]byte(message.Payload), &event)
+		if err != nil {
+			log.Println("Failed to unmarshal Redis message:", err)
+			continue
+		}
+
+		log.Println("Redis event:", event)
+
+		receiverConn, exists := h.Manager.Get(event.ReceiverID)
+		if !exists {
+			log.Println("Receiver is offline:", event.ReceiverID)
+			continue
+		}
+		err = receiverConn.WriteJSON(event)
+		if err != nil {
+			log.Println("WebSocket write error:", err)
+			h.Manager.Remove(event.ReceiverID)
+			continue
+		}
+		err = h.Service.UpdateMessageStatus(event.MessageID,event.ReceiverID,models.MessageDelivered)
+
+		if err != nil {
+			log.Println("Failed to mark message as delivered:", err)
+			continue
+		}
+		log.Println("Message delivered:", event.MessageID)
+	}
 }

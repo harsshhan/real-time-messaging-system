@@ -41,5 +41,7 @@ func main() {
 
 	routes.SetupRoutes(r, app)
 
+	go app.MessageHandler.ListenForMessages(context.Background())
+
 	r.Run()
 }

@@ -3,6 +3,7 @@ package handlers
 import (
 	"backend/models"
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 
@@ -41,12 +42,7 @@ func (h *MessageHandler) WebSocket(c *gin.Context) {
 
 	ctx := context.Background()
 
-	err = h.Redis.Set(
-		ctx,
-		"user:"+userID.String(),
-		"online",
-		0,
-	).Err()
+	err = h.RedisService.SetOnline(ctx, userID)
 
 	if err != nil {
 		log.Println("Redis presence error:", err)
@@ -56,10 +52,7 @@ func (h *MessageHandler) WebSocket(c *gin.Context) {
 
 		h.Manager.Remove(userID)
 
-		err := h.Redis.Del(
-			context.Background(),
-			"user:"+userID.String(),
-		).Err()
+		err := h.RedisService.SetOffline(context.Background(), userID)
 
 		if err != nil {
 			log.Println("Redis presence delete error:", err)
@@ -85,35 +78,65 @@ func (h *MessageHandler) WebSocket(c *gin.Context) {
 
 		log.Println("Received message:", message)
 
-		createdMessage, err := h.Service.SendMessage(
-			userID,
-			message,
-		)
+		switch message.Type {
+		case "message":
+			createdMessage, err := h.Service.SendMessage(
+				userID,
+				message,
+			)
 
-		if err != nil {
-			log.Println("Send message error:", err)
+			if err != nil {
+				log.Println("Send message error:", err)
 
-			conn.WriteJSON(gin.H{
-				"error": "failed to send message",
-			})
-			continue
+				conn.WriteJSON(gin.H{
+					"error": "failed to send message",
+				})
+				continue
+			}
+
+			log.Println("Message saved:", createdMessage)
+
+			event := models.MessageEvent{
+				MessageID:  createdMessage.ID,
+				SenderID:   userID,
+				ReceiverID: message.ReceiverID,
+				Content:    message.Content,
+			}
+
+			eventData, err := json.Marshal(event)
+
+			if err != nil {
+				log.Println("Failed to marshal message event:", err)
+				continue
+			}
+
+			err = h.RedisService.Publish(
+				context.Background(),
+				"messages",
+				string(eventData),
+			)
+
+			if err != nil {
+				log.Println("Failed to publish message:", err)
+				continue
+			}
+
+			log.Println("Message published to Redis:", string(eventData))
+		case "read":
+			err := h.Service.UpdateMessageStatus(message.MessageID, userID, models.MessageRead)
+			if err != nil {
+				log.Println("Failed to mark message as read:", err)
+				conn.WriteJSON(gin.H{
+					"error": "failed to mark message as read",
+				})
+				continue
+			}
+			log.Println("Message marked as read:", message.MessageID)
+
+		default:
+			log.Println("Unknown message type:", message.Type)
 		}
 
-		log.Println("Message saved:", createdMessage)
-
-		receiverConn, exists := h.Manager.Get(message.ReceiverID)
-
-		if !exists {
-			log.Println("Receiver is offline:", message.ReceiverID)
-			continue
-		}
-
-		err = receiverConn.WriteJSON(createdMessage)
-
-		if err != nil {
-			log.Println("WebSocket write error:", err)
-			h.Manager.Remove(message.ReceiverID)
-		}
 	}
 
 }

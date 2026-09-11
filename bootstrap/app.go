@@ -28,11 +28,13 @@ func NewApplication(db *pgxpool.Pool,redis *redis.Client) *Application {
 	authService := services.NewAuthService(userRepo)
 	userService := services.NewUserService(userRepo,redis)
 	messageService := services.NewMessageService(messageRepo)
+	redisService := services.NewRedisService(redis)
 	
 	// Handlers
 	authHandler := handlers.NewAuthHandler(authService)
 	userHandler := handlers.NewUserHandler(userService)
-	messageHandler := handlers.NewMessageHandler(messageService,manager, redis,userService)
+	
+	messageHandler := handlers.NewMessageHandler(messageService,manager, redisService,userService)
 
 	
 
