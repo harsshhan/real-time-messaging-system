@@ -42,3 +42,7 @@ func (s *MessageService) UpdateMessageStatus(messageID uuid.UUID, userID uuid.UU
 	}
 	return s.MessageRepo.UpdateMessageStatus(messageID, userID, status)
 }
+
+func (s *MessageService) GetMessageByID(messageID uuid.UUID) (*models.Message, error) {
+   return s.MessageRepo.GetMessageByID(messageID)
+}

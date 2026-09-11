@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 )
 
-
 const (
 	MessageSent      = "sent"
 	MessageDelivered = "delivered"
@@ -14,12 +13,12 @@ const (
 )
 
 type Message struct {
-	ID uuid.UUID `json:"id"`
-	SenderID uuid.UUID `json:"sender_id"`
+	ID         uuid.UUID `json:"id"`
+	SenderID   uuid.UUID `json:"sender_id"`
 	ReceiverID uuid.UUID `json:"receiver_id"`
-	Content string `json:"content"`
-	Status string `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
+	Content    string    `json:"content"`
+	Status     string    `json:"status"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 type WebSocketMessage struct {
@@ -29,20 +28,24 @@ type WebSocketMessage struct {
 	Content    string    `json:"content,omitempty"`
 }
 
+type ReadReceiptEvent struct {
+	MessageID  uuid.UUID `json:"message_id"`
+	SenderID   uuid.UUID `json:"sender_id"`
+	ReceiverID uuid.UUID `json:"receiver_id"`
+}
+
 type MessageResponse struct {
 	ID         uuid.UUID `json:"id"`
 	SenderID   uuid.UUID `json:"sender_id"`
 	ReceiverID uuid.UUID `json:"receiver_id"`
 	Content    string    `json:"content"`
-	Status 	   string 	 `json:"status"`
+	Status     string    `json:"status"`
 	CreatedAt  time.Time `json:"created_at"`
 }
 
 type MessageEvent struct {
-
 	MessageID  uuid.UUID `json:"message_id"`
 	SenderID   uuid.UUID `json:"sender_id"`
 	ReceiverID uuid.UUID `json:"receiver_id"`
 	Content    string    `json:"content"`
-
 }

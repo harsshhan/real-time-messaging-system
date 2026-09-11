@@ -94,3 +94,23 @@ func (r *MessageRepository) UpdateMessageStatus(messageID uuid.UUID, userID uuid
 
 	return err
 }
+
+func (r *MessageRepository) GetMessageByID(messageID uuid.UUID) (*models.Message, error) {
+	query := `select id, sender_id, receiver_id, content, status, created_at from messages where id = $1`
+
+	var message models.Message
+
+	err := r.DB.QueryRow(context.Background(), query, messageID).Scan(
+		&message.ID,
+		&message.SenderID,
+		&message.ReceiverID,
+		&message.Content,
+		&message.Status,
+		&message.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &message, nil
+}

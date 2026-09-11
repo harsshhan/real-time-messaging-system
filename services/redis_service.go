@@ -21,11 +21,8 @@ func (r *RedisService) Publish(ctx context.Context, channel string, message stri
 	return r.Client.Publish(ctx, channel, message).Err()
 }
 
-func (r *RedisService) Subscribe(ctx context.Context, channel string) *redis.PubSub {
-
-	pubsub := r.Client.Subscribe(ctx, channel)
-
-	return pubsub
+func (r *RedisService) Subscribe(ctx context.Context, channels ...string) *redis.PubSub {
+	return r.Client.Subscribe(ctx, channels...)
 }
 
 

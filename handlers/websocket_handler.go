@@ -123,15 +123,57 @@ func (h *MessageHandler) WebSocket(c *gin.Context) {
 
 			log.Println("Message published to Redis:", string(eventData))
 		case "read":
-			err := h.Service.UpdateMessageStatus(message.MessageID, userID, models.MessageRead)
+			msg, err := h.Service.GetMessageByID(message.MessageID)
+			if err != nil {
+				log.Println("Failed to get message:", err)
+				conn.WriteJSON(gin.H{
+					"error": "failed to get message",
+				})
+				continue
+			}
+			if msg.ReceiverID != userID {
+				log.Println("User is not authorized to read this message")
+				conn.WriteJSON(gin.H{
+					"error": "user is not authorized to read this message",
+				})
+				continue
+			}
+			err = h.Service.UpdateMessageStatus(message.MessageID, userID, models.MessageRead)
 			if err != nil {
 				log.Println("Failed to mark message as read:", err)
 				conn.WriteJSON(gin.H{
 					"error": "failed to mark message as read",
 				})
 				continue
+
 			}
 			log.Println("Message marked as read:", message.MessageID)
+
+			event := models.ReadReceiptEvent{
+				MessageID: msg.ID,
+				SenderID: msg.SenderID,
+				ReceiverID: msg.ReceiverID,
+			}
+
+			eventData, err := json.Marshal(event)
+
+			if err != nil {
+				log.Println("Failed to marshal read receipt:", err)
+				continue
+			}
+
+			err = h.RedisService.Publish(
+				context.Background(),
+				"read_receipts",
+				string(eventData),
+			)
+
+			if err != nil {
+				log.Println("Failed to publish read receipt:", err)
+				continue
+			}
+
+			log.Println("Read receipt published:", string(eventData))
 
 		default:
 			log.Println("Unknown message type:", message.Type)

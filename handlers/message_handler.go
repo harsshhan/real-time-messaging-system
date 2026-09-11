@@ -128,7 +128,7 @@ func (h *MessageHandler) GetConversation(c *gin.Context) {
 
 func (h *MessageHandler) ListenForMessages(ctx context.Context) {
 
-	pubsub := h.RedisService.Subscribe(ctx, "messages")
+	pubsub := h.RedisService.Subscribe(ctx, "messages", "read_receipts")
 	defer pubsub.Close()
 
 	for {
@@ -138,33 +138,70 @@ func (h *MessageHandler) ListenForMessages(ctx context.Context) {
 			log.Println("Redis subscriber error:", err)
 			return
 		}
-		var event models.MessageEvent
 
-		err = json.Unmarshal([]byte(message.Payload), &event)
-		if err != nil {
-			log.Println("Failed to unmarshal Redis message:", err)
-			continue
-		}
+		switch message.Channel {
+		case "messages":
 
-		log.Println("Redis event:", event)
+			var event models.MessageEvent
 
-		receiverConn, exists := h.Manager.Get(event.ReceiverID)
-		if !exists {
-			log.Println("Receiver is offline:", event.ReceiverID)
-			continue
-		}
-		err = receiverConn.WriteJSON(event)
-		if err != nil {
-			log.Println("WebSocket write error:", err)
-			h.Manager.Remove(event.ReceiverID)
-			continue
-		}
-		err = h.Service.UpdateMessageStatus(event.MessageID,event.ReceiverID,models.MessageDelivered)
+			err = json.Unmarshal([]byte(message.Payload), &event)
+			if err != nil {
+				log.Println("Failed to unmarshal Redis message:", err)
+				continue
+			}
 
-		if err != nil {
-			log.Println("Failed to mark message as delivered:", err)
-			continue
+			log.Println("Redis event:", event)
+
+			receiverConn, exists := h.Manager.Get(event.ReceiverID)
+			if !exists {
+				log.Println("Receiver is offline:", event.ReceiverID)
+				continue
+			}
+			err = receiverConn.WriteJSON(event)
+			if err != nil {
+				log.Println("WebSocket write error:", err)
+				h.Manager.Remove(event.ReceiverID)
+				continue
+			}
+			err = h.Service.UpdateMessageStatus(event.MessageID, event.ReceiverID, models.MessageDelivered)
+
+			if err != nil {
+				log.Println("Failed to mark message as delivered:", err)
+				continue
+			}
+			log.Println("Message delivered:", event.MessageID)
+
+		case "read_receipts":
+			var readReceiptEvent models.ReadReceiptEvent
+
+			err := json.Unmarshal(
+				[]byte(message.Payload),
+				&readReceiptEvent,
+			)
+
+			if err != nil {
+				log.Println("Failed to unmarshal read receipt:", err)
+				continue
+			}
+
+			log.Println("Redis read receipt:", readReceiptEvent)
+
+			senderConn, exists := h.Manager.Get(readReceiptEvent.SenderID)
+
+			if !exists {
+				log.Println("Sender is offline:", readReceiptEvent.SenderID)
+				continue
+			}
+
+			err = senderConn.WriteJSON(readReceiptEvent)
+
+			if err != nil {
+				log.Println("WebSocket write error:", err)
+				h.Manager.Remove(readReceiptEvent.SenderID)
+				continue
+			}
+
+			log.Println("Read receipt delivered:", readReceiptEvent.MessageID)
 		}
-		log.Println("Message delivered:", event.MessageID)
 	}
 }
